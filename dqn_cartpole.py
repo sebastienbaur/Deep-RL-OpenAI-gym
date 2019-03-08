@@ -40,7 +40,7 @@ class DQN(t.nn.Module):
 
         # reshape if necessary
         xx = xx if len(x.shape) == 2 else xx.view(-1)
-        return xx
+        return -xx  # the rewards are all negative
 
     def action(self, x, eps=.1):
         """
@@ -64,7 +64,7 @@ class Buffer:
         self.max_size = max_size
 
     def add(self, x):
-        if len(self.memory) <= MAX_SIZE_BUFFER:
+        if len(self.memory) <= self.max_size:
             self.memory.append(x)
         else:
             self.memory[random.randint(0, len(self.memory)-1)] = x
