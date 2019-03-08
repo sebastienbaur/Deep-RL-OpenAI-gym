@@ -3,22 +3,23 @@ DQN on OpenAI's MountainCar problem
 
 - Implementation of DQN : https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf
 - Works with the OpenAI gym environment
+- Modified reward function
 """
 import gym
-import torch.nn.functional as F
-import torch as t
 import numpy as np
+import torch as t
+import torch.nn.functional as F
 from matplotlib import pyplot as plt
-from random import sample
-import random
+
+from utils import Buffer, moving_average
 
 
 class DQN(t.nn.Module):
     """
     3 layered fully-connected neural network with batch norm
-    It takes the state as inputs and outputs Q(s,0), Q(s,1)
+    It takes the state as inputs and outputs Q(s,0), Q(s,1), Q(s,2)
     """
-    def __init__(self, hdim=100):
+    def __init__(self, hdim=100, sign=-1):
         super(DQN, self).__init__()
 
         # sequence of blocks FC + BN + ReLU
@@ -28,6 +29,7 @@ class DQN(t.nn.Module):
         self.bn2 = t.nn.BatchNorm1d(hdim)
         self.fc3 = t.nn.Linear(hdim, 3)  # one output per action
         self.bn3 = t.nn.BatchNorm1d(3)
+        self.sign = sign
 
     def forward(self, x):
         # reshape if necessary
@@ -40,7 +42,7 @@ class DQN(t.nn.Module):
 
         # reshape if necessary
         xx = xx if len(x.shape) == 2 else xx.view(-1)
-        return xx
+        return self.sign * xx  # the rewards are all negative, so is the value function
 
     def action(self, x, eps=.1):
         """
@@ -58,37 +60,12 @@ class DQN(t.nn.Module):
             return t.argmax(values, dim=1 if len(x.shape) == 2 else 0)
 
 
-class Buffer:
-    def __init__(self, max_size):
-        self.memory = []
-        self.max_size = max_size
-
-    def add(self, x):
-        if len(self.memory) <= self.max_size:
-            self.memory.append(x)
-        else:
-            self.memory[random.randint(0, len(self.memory)-1)] = x
-
-    def sample(self, n):
-        return sample(self.memory, n)
-
-    @property
-    def n(self):
-        return len(self.memory)
-
-
-def moving_average(a, n=25) :
-    ret = np.cumsum(a, dtype=float)
-    ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n
-
-
 if __name__ == '__main__':
     env = gym.make('MountainCar-v0')
 
     # INIT
-    dqn = DQN()
-    lr = 1e-2
+    dqn = DQN(hdim=50, sign=1)
+    lr = 1e-3
     optim = t.optim.RMSprop(dqn.parameters(), lr=lr)
     batch_size = 128
 
@@ -96,15 +73,19 @@ if __name__ == '__main__':
 
     i = 0  # step counts
 
-    N_RANDOM = 1000.  # the number of steps it takes to go from eps=0.95 to eps=0.05
+    N_RANDOM = 2000.  # the number of steps it takes to go from eps=0.95 to eps=0.05
     N_EPISODES = 500
     N_MIN_TRANSITIONS = batch_size*3  # the minimum number of transitions to be seen in the buffer before starting training
-    MAX_SIZE_BUFFER = 10000  # the maximum number of transitions in the buffer
+    MAX_SIZE_BUFFER = batch_size*1000  # the maximum number of transitions in the buffer
 
     replay_memory = Buffer(MAX_SIZE_BUFFER)
     cum_rewards = []
+    i_eps = []
+    observation = None
 
     for i_episode in range(N_EPISODES):
+        print('episode %d/%d' % (i_episode, N_EPISODES))
+        print('Last final pos: %.2f\n' % observation[0]) if observation is not None else print()
         observation = env.reset()
         cum_reward = 0
         done = False
@@ -122,11 +103,13 @@ if __name__ == '__main__':
             action = dqn.action(x, eps=eps).numpy()  # eps-greedy action selection
             transition = {'s': observation*1.}
             observation, reward, done, info = env.step(action)
-            cum_reward += reward
 
-            # STOP IF 200 SUCCESSFUL STEPS
+            # STOP IF 200 STEPS
             if i_ep > 200:
                 done = True
+
+            reward = 0 if not done else (.995**i_ep)*((observation[0] >= .5)*2. + ((observation[0] + 2.2)**2)/(2.7**2))  # observation[0] + 1.2
+            cum_reward += reward
 
             # EXPERIENCE REPLAY
             transition['a'] = action
@@ -162,15 +145,15 @@ if __name__ == '__main__':
 
             if done:
                 cum_rewards.append(cum_reward)
-                cum_reward = 0
+                i_eps.append(i_ep)
                 break
 
     env.close()
 
-    plt.plot(cum_rewards, label='cum_r')
-    plt.plot(moving_average(cum_rewards, 25), label='smoothed cum_r')
-    plt.ylabel('Cumulated reward')
+    plt.plot(i_eps, label='#steps')
+    plt.plot(moving_average(i_eps, 25), label='smoothed #steps')
+    plt.ylabel('Number of steps before the end of the episode')
     plt.xlabel('# episodes')
-    plt.title('Training of DQN on the cart-pole balancing task')
+    plt.title('Training of DQN on the MountainCar task')
     plt.legend()
     plt.show()

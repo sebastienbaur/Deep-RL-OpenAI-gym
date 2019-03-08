@@ -11,6 +11,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from random import sample
 import random
+from utils import moving_average, Buffer
 
 
 class DQN(t.nn.Module):
@@ -40,7 +41,7 @@ class DQN(t.nn.Module):
 
         # reshape if necessary
         xx = xx if len(x.shape) == 2 else xx.view(-1)
-        return -xx  # the rewards are all negative
+        return xx
 
     def action(self, x, eps=.1):
         """
@@ -56,31 +57,6 @@ class DQN(t.nn.Module):
             return t.argmax(values, dim=1 if len(x.shape) == 2 else 0)
         else:
             return t.argmax(values, dim=1 if len(x.shape) == 2 else 0)
-
-
-class Buffer:
-    def __init__(self, max_size):
-        self.memory = []
-        self.max_size = max_size
-
-    def add(self, x):
-        if len(self.memory) <= self.max_size:
-            self.memory.append(x)
-        else:
-            self.memory[random.randint(0, len(self.memory)-1)] = x
-
-    def sample(self, n):
-        return sample(self.memory, n)
-
-    @property
-    def n(self):
-        return len(self.memory)
-
-
-def moving_average(a, n=25) :
-    ret = np.cumsum(a, dtype=float)
-    ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n
 
 
 if __name__ == '__main__':
