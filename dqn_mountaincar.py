@@ -11,14 +11,17 @@ TODO:
 - plotter les valeurs
 
 """
+from random import sample
+
 import gym
 import numpy as np
 import torch as t
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
-from utils import Buffer, moving_average, color
+from utils import moving_average, color
 from itertools import product
-from IPython.display import clear_output
+from tensorboardX import SummaryWriter
+from collections import deque
 
 
 class DQN(t.nn.Module):
@@ -34,7 +37,7 @@ class DQN(t.nn.Module):
         self.bn1 = t.nn.BatchNorm1d(hdim)
         self.fc2 = t.nn.Linear(hdim, hdim, bias=False)
         self.bn2 = t.nn.BatchNorm1d(hdim)
-        self.fc3 = t.nn.Linear(hdim, 3, bias=False)  # one output per action
+        self.fc3 = t.nn.Linear(hdim, 3, bias=True)  # one output per action
         self.bn3 = t.nn.BatchNorm1d(3)
         # self.sign = sign
 
@@ -43,16 +46,16 @@ class DQN(t.nn.Module):
         xx = x*1. if len(x.shape) == 2 else x.view(1, -1)
 
         # forward pass
-        xx = F.relu(self.bn1(self.fc1(xx.float())))
+        xx = self.bn1(F.relu(self.fc1(xx.float())))
         # xx = F.relu(self.fc1(xx.float()))
-        xx = F.relu(self.bn2(self.fc2(xx)))
+        xx = self.bn2(F.relu(self.fc2(xx)))
         # xx = F.relu(self.fc2(xx))
         xx = self.bn3(self.fc3(xx))
         # xx = self.fc3(xx)
 
         # reshape if necessary
         xx = xx if len(x.shape) == 2 else xx.view(-1)
-        return t.sigmoid(xx)
+        return F.relu(xx)
 
     def action(self, x, return_score=False, eps=.1):
         """
@@ -80,6 +83,7 @@ if __name__ == '__main__':
 
     # INIT
     dqn = DQN(hdim=100)
+    writer = SummaryWriter(log_dir='tensorboard')
     lr = 1e-3
     optim = t.optim.RMSprop(dqn.parameters(), lr=lr)
     batch_size = 128
@@ -88,12 +92,12 @@ if __name__ == '__main__':
 
     i = 0  # step counts
 
-    N_RANDOM = 2000.  # the number of steps it takes to go from eps=0.95 to eps=0.1
-    N_EPISODES = 1000
-    N_MIN_TRANSITIONS = batch_size*3  # the minimum number of transitions to be seen in the buffer before starting training
-    MAX_SIZE_BUFFER = 50000  # the maximum number of transitions in the buffer
+    N_RANDOM = 40000.  # the number of steps it takes to go from eps=0.95 to eps=0.1
+    N_EPISODES = 1500
+    MAX_SIZE_BUFFER = 10000  # the maximum number of transitions in the buffer
+    N_MIN_TRANSITIONS = batch_size * 8  # the minimum number of transitions to be seen in the buffer before starting training
 
-    replay_memory = Buffer(MAX_SIZE_BUFFER)
+    replay_memory = deque(maxlen=MAX_SIZE_BUFFER)  # Buffer(MAX_SIZE_BUFFER)
     cum_rewards = []
     i_eps = []
     observation = None
@@ -110,7 +114,7 @@ if __name__ == '__main__':
 
             i += 1
             i_ep += 1
-            eps = float(np.clip(1 - i/N_RANDOM, 0.1, .95))
+            eps = float(np.clip(1 - i/N_RANDOM, 0.05, .95))
 
             # TAKE ACTION
             x = t.from_numpy(observation)
@@ -119,12 +123,10 @@ if __name__ == '__main__':
             transition = {'s': observation*1.}
             observation, reward, done, info = env.step(action)
 
-            # reward = 0 if not done else (.995**i_ep)*((observation[0] >= .5)*2. + ((observation[0] + 2.2)**2)/(2.7**2))  # observation[0] + 1.2
-            # reward = -(action-1.)**2 - .25*(action == 0)
-            reward = 0
+            reward = 0  # observation[0] + .5
             if done and (observation[0] >= .5):
                 reward += 1
-            cum_reward += reward
+            cum_reward += (gamma**i_ep)*reward
 
             # EXPERIENCE REPLAY
             transition['a'] = action
@@ -132,12 +134,12 @@ if __name__ == '__main__':
             transition['d'] = done
             transition['r'] = reward
 
-            replay_memory.add(transition)
+            replay_memory.append(transition)
 
             # TRAIN DQN IF ENOUGH SAVED TRANSITIONS
-            if replay_memory.n > N_MIN_TRANSITIONS:
+            if len(replay_memory) > N_MIN_TRANSITIONS:  # replay_memory.n > N_MIN_TRANSITIONS:
 
-                batch = replay_memory.sample(batch_size)
+                batch = sample(replay_memory, batch_size)  # replay_memory.sample(batch_size)
                 a = t.from_numpy(np.stack([np.array([transition['a']]) for transition in batch])).long()
                 s = t.from_numpy(np.stack([transition['s'] for transition in batch]))
                 r = t.from_numpy(np.stack([np.array([transition['r']]) for transition in batch]))
@@ -164,24 +166,24 @@ if __name__ == '__main__':
                 actions = actions.numpy().reshape(-1)
                 q_scores = q_scores.detach().numpy()
 
-                plt.ion()
-
-                plt.figure(1)
+                fig = plt.figure(1)
                 plt.clf()
                 plt.scatter(pos_speed_grid[:, 0], pos_speed_grid[:, 1], c=color(actions))
-                plt.show()
+                writer.add_figure('policy', fig)
 
-                plt.figure(2)
+                fig = plt.figure(2)
                 plt.clf()
                 plt.hist(q_scores, bins=int(np.sqrt(q_scores.shape[0]))+1, color=('red', 'yellow', 'green'))
-                plt.show()
+                writer.add_figure('q_scores', fig)
 
-                plt.figure(3)
+                fig = plt.figure(3)
                 plt.plot(cum_rewards, label='cum_r', c='g')
                 plt.plot(moving_average(cum_rewards, 25), label='smoothed cum_r', c='r')
-                plt.show()
+                writer.add_figure('cum_r', fig)
 
-                clear_output(wait=True)
+                writer.add_histogram('fc1', dqn.fc1.weight.detach().numpy(), global_step=i)
+                writer.add_histogram('fc2', dqn.fc2.weight.detach().numpy(), global_step=i)
+                writer.add_histogram('fc3', dqn.fc3.weight.detach().numpy(), global_step=i)
 
                 cum_rewards.append(cum_reward)
                 i_eps.append(i_ep)
