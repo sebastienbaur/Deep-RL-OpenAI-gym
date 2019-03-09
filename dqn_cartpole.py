@@ -9,8 +9,6 @@ import torch.nn.functional as F
 import torch as t
 import numpy as np
 from matplotlib import pyplot as plt
-from random import sample
-import random
 from utils import moving_average, Buffer
 
 

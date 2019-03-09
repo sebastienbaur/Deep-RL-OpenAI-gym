@@ -25,4 +25,16 @@ class Buffer:
 def moving_average(a, n=25) :
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n
+    return n*[None] + (ret[n - 1:] / n).tolist()
+
+
+def color(actions):
+    colors = []
+    for a in actions:
+        if a == 0:
+            colors.append('red')
+        elif a == 1:
+            colors.append('yellow')
+        else:
+            colors.append('green')
+    return colors
