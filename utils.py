@@ -1,3 +1,4 @@
+import os
 import random
 from random import sample
 import numpy as np
@@ -38,3 +39,14 @@ def color(actions):
         else:
             colors.append('green')
     return colors
+
+
+def create_exp_dir():
+    i = 1
+    while True:
+        if os.path.isdir('./tensorboard/exp%d'%i):
+            i += 1
+        else:
+            break
+    os.mkdir('./tensorboard/exp%d'%i)
+    return 'tensorboard/exp%d'%i
