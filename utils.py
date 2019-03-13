@@ -2,6 +2,27 @@ import os
 import random
 from random import sample
 import numpy as np
+from collections import deque
+from scipy.special import softmax
+
+
+class PrioritizedBuffer:
+    def __init__(self, max_size, temp=30.):
+        self.memory = deque()
+        self.priorities = deque()
+        self.max_size = max_size
+        self.temp = temp
+
+    def add(self, x, priority):
+        self.memory.append(x)
+        self.priorities.append(priority)
+
+    def sample(self, n):
+        return np.random.choice(self.memory, n, replace=False, p=softmax(np.array(self.priorities)*self.temp))
+
+    @property
+    def n(self):
+        return len(self.memory)
 
 
 class Buffer:
@@ -50,3 +71,4 @@ def create_exp_dir():
             break
     os.mkdir('./tensorboard/exp%d'%i)
     return 'tensorboard/exp%d'%i
+

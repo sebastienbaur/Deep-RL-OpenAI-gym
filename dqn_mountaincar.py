@@ -14,7 +14,6 @@ TODO:
 from collections import deque
 from itertools import product
 from random import sample
-
 import gym
 import numpy as np
 import torch as t
@@ -35,8 +34,8 @@ class DQN(t.nn.Module):
         # sequence of blocks FC + BN + ReLU
         self.fc1 = t.nn.Linear(2, hdim, bias=False)  # 2d state space
         self.bn1 = t.nn.BatchNorm1d(hdim)
-        # self.fc2 = t.nn.Linear(hdim, hdim, bias=False)
-        # self.bn2 = t.nn.BatchNorm1d(hdim)
+        self.fc2 = t.nn.Linear(hdim, hdim, bias=False)
+        self.bn2 = t.nn.BatchNorm1d(hdim)
         self.fc3 = t.nn.Linear(hdim, 3, bias=True)  # one output per action
         # self.bn3 = t.nn.BatchNorm1d(3)
         # self.sign = sign
@@ -48,7 +47,7 @@ class DQN(t.nn.Module):
         # forward pass
         xx = self.bn1(F.relu(self.fc1(xx.float())))
         # xx = F.relu(self.fc1(xx.float()))
-        # xx = self.bn2(F.relu(self.fc2(xx)))
+        xx = self.bn2(F.relu(self.fc2(xx)))
         # xx = F.relu(self.fc2(xx))
         # xx = F.relu(self.bn3(self.fc3(xx)))
         xx = F.relu(self.fc3(xx))
@@ -88,7 +87,7 @@ if __name__ == '__main__':
     optim = t.optim.RMSprop(dqn.parameters(), lr=lr)
     batch_size = 128
 
-    gamma = .995  # discount factor
+    gamma = .997  # discount factor
 
     i = 0  # step counts
     successes = 0
@@ -115,7 +114,7 @@ if __name__ == '__main__':
 
             i += 1
             i_ep += 1
-            eps = float(np.clip(1 - i/N_RANDOM, 0.05, 1.))
+            eps = float(np.clip(1 - i/N_RANDOM, .1, 1.))
 
             # TAKE ACTION
             x = t.from_numpy(observation)
@@ -123,11 +122,11 @@ if __name__ == '__main__':
             action = dqn.action(x, eps=eps).numpy()  # eps-greedy action selection
             transition = {'s': observation*1.}
             observation, reward, done, info = env.step(action)
-            pos = observation[0]
+            pos = observation[0]*1.
 
-            if observation[0] > max_pos:
+            if pos > max_pos:
                 max_pos = pos*1.
-            if observation[0] < min_pos:
+            if pos < min_pos:
                 min_pos = pos*1.
 
             reward = 0  # pos + .5  # modify reward to encourage getting closer to the flag
