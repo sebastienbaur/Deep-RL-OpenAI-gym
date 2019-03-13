@@ -133,3 +133,8 @@ def create_exp_dir():
             break
     os.mkdir('./tensorboard/exp%d'%i)
     return 'tensorboard/exp%d'%i
+
+
+def huber(x):
+    mask = (t.abs(x) < 1.).float()
+    return mask*.5*t.pow(x, 2) + (1.-mask)*(t.abs(x) - .5)
