@@ -10,7 +10,6 @@ import os
 ###########################################
 # NOT TESTED
 ###########################################
-from utils import color
 
 
 class PrioritizedBuffer:
@@ -56,7 +55,7 @@ class DQN(torch.nn.Module):
         # forward pass
         xx = self.bn1(F.relu(self.fc1(xx.float())))
         xx = self.bn2(F.relu(self.fc2(xx)))
-        xx = F.relu(self.fc3(xx))
+        xx = self.fc3(xx)
 
         # reshape if necessary
         xx = xx if len(x.shape) == 2 else xx.view(-1)
@@ -144,11 +143,15 @@ def color(actions):
     return colors
 
 
+def _reward(pos):
+    return np.exp(.1/(.6-pos))
+
+
 def update_reward(pos, done, successes):
-    reward = (.2/(.7-pos))**3
+    reward = _reward(pos) - _reward(-.3)
     if done:
         if pos >= .5:
-            reward += 1
+            reward += 3
             successes += 1
     return reward, successes
 

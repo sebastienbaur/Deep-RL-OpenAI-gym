@@ -5,6 +5,18 @@ DQN on OpenAI's MountainCar problem
 - Works with the OpenAI gym environment
 - Modified reward function
 
+
+
+TODO:
+Essayer de comprendre pourquoi ca n'apprend pas
+
+---> remplir la memoire avec des samples qui reussissent
+---> pre-train Q sur la reward cumulee
+---> visualiser l'erreur V(s) - Q(s,a) a intervalles reguliers
+---> Essayer d'autres reward schemes
+---> essayer le meme code sur l'environnement Cartpole balancing
+--->
+
 """
 
 
@@ -20,12 +32,12 @@ from utils import create_exp_dir
 
 
 # Hyperparams
-BATCH_SIZE = 128
-TAU = 10000
-GAMMA = .995  # discount factor
+BATCH_SIZE = 64
+TAU = 200
+GAMMA = .999  # discount factor
 N_RANDOM = 40000.  # the number of steps it takes to go from eps=1. to eps=0.1
 N_EPISODES = 1500
-MAX_SIZE_BUFFER = 100000  # the maximum number of transitions in the buffer
+MAX_SIZE_BUFFER = 20000  # the maximum number of transitions in the buffer
 T_START_LEARNING = BATCH_SIZE * 10  # the minimum number of transitions to be seen in the buffer before training
 ALPHA = .6  # default OpenAI
 BETA = .4  # default OpenAI
@@ -45,8 +57,8 @@ env = gym.make('MountainCar-v0')
 # Neural networks
 dqn = DQN(hdim=100)
 dqn_eval = deepcopy(dqn)
-lr = 1e-3
-momentum = .5
+lr = 2e-4
+momentum = .05
 optim = torch.optim.Adam(dqn.parameters(), lr=lr)  # RMSprop(dqn.parameters(), lr=lr, momentum=momentum)
 
 
