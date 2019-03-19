@@ -83,6 +83,7 @@ def build_target(dqn, dqn_eval, r, s_, d, gamma):
 def update_eval_network(dqn_eval, dqn, i, tau):
     if i % tau == 0:
         dqn_eval.load_state_dict(dqn.state_dict())
+        dqn_eval.eval()
 
 
 def create_exp_dir():

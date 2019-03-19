@@ -58,6 +58,7 @@ env = gym.make('MountainCar-v0')
 # Neural networks and optimizer
 dqn = DQN(hdim=100)
 dqn_eval = deepcopy(dqn)
+dqn_eval.eval()
 lr = 2e-4
 momentum = .05
 optim = torch.optim.Adam(dqn.parameters(), lr=lr)  # RMSprop(dqn.parameters(), lr=lr, momentum=momentum)
@@ -94,6 +95,8 @@ for n_episode in range(N_EPISODES):
     t_ep = 0
 
     while not done:
+        dqn.eval()
+
         # Copy weights of eval network if necessary
         update_eval_network(dqn_eval, dqn, t, TAU) if t > T_START_LEARNING else None
 
@@ -102,11 +105,12 @@ for n_episode in range(N_EPISODES):
         t_ep += 1
         eps = .05 + .95*np.exp(-t*5 / N_RANDOM)
 
-        # TAKE ACTION
+        # OBSERVE
         x = torch.from_numpy(observation_t)
-        dqn.eval()
-        action = dqn.action(x, eps=eps).numpy()  # eps-greedy action selection
         observation_t = observation_tp1*1. if observation_tp1 is not None else observation_t
+
+        # TAKE ACTION
+        action = dqn.action(x, eps=eps).numpy()  # eps-greedy action selection
         observation_tp1, _, done, _ = env.step(action)
         pos = observation_tp1[0]*1.
 
@@ -120,11 +124,12 @@ for n_episode in range(N_EPISODES):
         # TRAIN
         if len(replay_memory) > T_START_LEARNING:  # if enough saved transitions
             if t % 3 == 0:  # TRAIN NOT TOO FREQUENTLY
+                dqn.train()
+
                 # Sample batch
                 s, a, r, s_, d, w, idx = replay_memory.sample(BATCH_SIZE, BETA, to_tensor=True)
 
                 # Compute loss
-                dqn.train()
                 q = dqn.q_values(s, a)  # q(s_i, a_i) for all elements of the batch
                 target = build_target(dqn, dqn_eval, r, s_, d, GAMMA)
                 td_error = q - target
