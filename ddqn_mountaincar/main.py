@@ -113,7 +113,6 @@ for n_episode in range(N_EPISODES):
 
         # UPDATE REWARD (the rewrad provided by the environment is too sparse and does not help the algorithm to learn)
         reward, successes = update_reward(pos, done, successes)
-        # reward, successes, min_pos, max_pos = update_reward(done, max_pos, min_pos, pos, successes)
         cum_reward += (GAMMA ** t_ep) * reward
 
         # STORE IN MEMORY
