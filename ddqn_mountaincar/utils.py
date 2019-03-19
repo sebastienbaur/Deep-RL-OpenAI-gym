@@ -1,9 +1,16 @@
-import torch as t
+import torch
 import torch.nn.functional as F
 import numpy as np
 from collections import deque
+from matplotlib import pyplot as plt
 from scipy.special import softmax
 import os
+
+
+###########################################
+# NOT TESTED
+###########################################
+from utils import color
 
 
 class PrioritizedBuffer:
@@ -25,7 +32,7 @@ class PrioritizedBuffer:
         return len(self.memory)
 
 
-class DQN(t.nn.Module):
+class DQN(torch.nn.Module):
     """
     3 layered fully-connected neural network with batch norm
     It takes the state as inputs and outputs Q(s,0), Q(s,1), Q(s,2)
@@ -34,12 +41,12 @@ class DQN(t.nn.Module):
         super(DQN, self).__init__()
 
         # sequence of blocks FC + BN + ReLU
-        self.fc1 = t.nn.Linear(2, hdim, bias=False)  # 2d state space
-        self.bn1 = t.nn.BatchNorm1d(hdim)
-        self.fc2 = t.nn.Linear(hdim, hdim, bias=False)
-        self.bn2 = t.nn.BatchNorm1d(hdim)
-        self.fc3 = t.nn.Linear(hdim, 3, bias=True)  # one output per action
-        # self.bn3 = t.nn.BatchNorm1d(3)
+        self.fc1 = torch.nn.Linear(2, hdim, bias=False)  # 2d state space
+        self.bn1 = torch.nn.BatchNorm1d(hdim)
+        self.fc2 = torch.nn.Linear(hdim, hdim, bias=False)
+        self.bn2 = torch.nn.BatchNorm1d(hdim)
+        self.fc3 = torch.nn.Linear(hdim, 3, bias=True)  # one output per action
+        # self.bn3 = torch.nn.BatchNorm1d(3)
         # self.sign = sign
 
     def forward(self, x):
@@ -48,10 +55,7 @@ class DQN(t.nn.Module):
 
         # forward pass
         xx = self.bn1(F.relu(self.fc1(xx.float())))
-        # xx = F.relu(self.fc1(xx.float()))
         xx = self.bn2(F.relu(self.fc2(xx)))
-        # xx = F.relu(self.fc2(xx))
-        # xx = F.relu(self.bn3(self.fc3(xx)))
         xx = F.relu(self.fc3(xx))
 
         # reshape if necessary
@@ -68,60 +72,48 @@ class DQN(t.nn.Module):
         values = self.forward(x)
         u = np.random.random()
         if u < eps:
-            values = t.rand_like(values)
-            return t.argmax(values, dim=1 if len(x.shape) == 2 else 0)
+            values = torch.rand_like(values)
+            return torch.argmax(values, dim=1 if len(x.shape) == 2 else 0)
         else:
-            return t.argmax(values, dim=1 if len(x.shape) == 2 else 0) if not return_score else (t.argmax(values, dim=1 if len(x.shape) == 2 else 0), values)
+            return torch.argmax(values, dim=1 if len(x.shape) == 2 else 0) if not return_score else (torch.argmax(values, dim=1 if len(x.shape) == 2 else 0), values)
 
     def q_values(self, s, a):
         return self.forward(s).gather(1, a).view(-1)
 
 
-def update_eval_network(dqn_eval, dqn, i, tau):
-    if i % tau == 0:
-        dqn_eval.load_state_dict(dqn.state_dict())
-
-
-def update_min_max_pos(pos, min_pos, max_pos):
-    if pos > max_pos:
-        max_pos = pos*1.
-    if pos < min_pos:
-        min_pos = pos*1.
-    return min_pos, max_pos
-
-
 def parse_batch(batch):
-    a = t.from_numpy(np.stack([np.array([transition['a']]) for transition in batch])).long()
-    s = t.from_numpy(np.stack([transition['s'] for transition in batch]))
-    r = t.from_numpy(np.stack([np.array([transition['r']]) for transition in batch]))
-    s_ = t.from_numpy(np.stack([transition["s'"] for transition in batch]))
-    d = t.from_numpy(np.stack([np.array([transition['d']])*1. for transition in batch])).byte().view(-1)
+    a = torch.from_numpy(np.stack([np.array([transition['a']]) for transition in batch])).long()
+    s = torch.from_numpy(np.stack([transition['s'] for transition in batch]))
+    r = torch.from_numpy(np.stack([np.array([transition['r']]) for transition in batch]))
+    s_ = torch.from_numpy(np.stack([transition["s'"] for transition in batch]))
+    d = torch.from_numpy(np.stack([np.array([transition['d']])*1. for transition in batch])).byte().view(-1)
     return a,s,r,s_,d
 
 
 def build_target(dqn, dqn_eval, r, s_, d, gamma):
     dqn.eval()
     dqn_eval.eval()
+
     target = r.view(-1).float()
-    greedy_actions = t.max(dqn.forward(s_), 1)[1].view(-1, 1)
-    update_target = dqn_eval.forward(s_).gather(1, greedy_actions).view(-1)
+
+    q = dqn.forward(s_)
+    greedy_actions = torch.max(q + torch.rand_like(q) / 1e6, 1)[1].view(-1, 1)   # actions that maximizes `Q(S_t+1, a)` w.r.t. `a`
+    update_target = dqn_eval.forward(s_).gather(1, greedy_actions).view(-1)  # values of these actions `a` with the evaluation network `Q'(S_t+1, a)`
     update_target = (gamma * update_target[1 - d]).float()
-    target[1 - d] += update_target
-    # target[1 - d] += (gamma * t.max(dqn.forward(s_), 1)[0][1 - d]).float()
+
+    target[1 - d] += update_target  # update only those transitions that are not done
     target.detach_()  # don't propagate gradients through this
+
     return target
 
 
-def color(actions):
-    colors = []
-    for a in actions:
-        if a == 0:
-            colors.append('red')
-        elif a == 1:
-            colors.append('yellow')
-        else:
-            colors.append('green')
-    return colors
+###########################################
+# TESTED
+###########################################
+
+def update_eval_network(dqn_eval, dqn, i, tau):
+    if i % tau == 0:
+        dqn_eval.load_state_dict(dqn.state_dict())
 
 
 def create_exp_dir():
@@ -136,5 +128,67 @@ def create_exp_dir():
 
 
 def huber(x):
-    mask = (t.abs(x) < 1.).float()
-    return mask*.5*t.pow(x, 2) + (1.-mask)*(t.abs(x) - .5)
+    mask = (torch.abs(x) < 1.).float()
+    return mask*.5*torch.pow(x, 2) + (1.-mask)*(torch.abs(x) - .5)
+
+
+def color(actions):
+    colors = []
+    for a in actions:
+        if a == 0:
+            colors.append('red')
+        elif a == 1:
+            colors.append('yellow')
+        else:
+            colors.append('green')
+    return colors
+
+
+def update_reward(done, max_pos, min_pos, pos, successes):
+    min_pos, max_pos = update_min_max_pos(pos, min_pos, max_pos)
+    reward = 0
+    if done:
+        if pos >= .5:
+            successes += 1
+            reward += 10
+        else:
+            reward += max_pos - min_pos
+    return reward, successes, min_pos, max_pos
+
+
+def update_min_max_pos(pos, min_pos, max_pos):
+    min_pos = min(min_pos, pos)
+    max_pos = max(max_pos, pos)
+    return min_pos, max_pos
+
+
+def tensorboard(dqn, pos_speed_grid, writer, t, cum_reward, successes, t_ep, loss, wloss, r):
+    dqn.eval()
+    actions, q_scores = dqn.action(torch.from_numpy(pos_speed_grid).float(), eps=0, return_score=True)
+    actions = actions.numpy().reshape(-1)
+    q_scores = q_scores.detach().numpy()
+
+    # policy
+    fig = plt.figure(1)
+    plt.clf()
+    plt.scatter(pos_speed_grid[:, 0], pos_speed_grid[:, 1], c=color(actions))
+    writer.add_figure('policy', fig, global_step=t)
+
+    # histograms of the scores, per action
+    fig = plt.figure(2)
+    plt.clf()
+    plt.hist(q_scores, bins=int(np.sqrt(q_scores.shape[0]))+1, color=('red', 'yellow', 'green'))
+    writer.add_figure('q_scores', fig, global_step=t)
+
+    # weights of the neural network
+    writer.add_histogram('fc1', dqn.fc1.weight.detach().numpy(), global_step=t)
+    writer.add_histogram('fc2', dqn.fc2.weight.detach().numpy(), global_step=t)
+    writer.add_histogram('fc3', dqn.fc3.weight.detach().numpy(), global_step=t)
+
+    # a few scalars to monitor the performance of the agent (cumulative rewards and loss essentially)
+    writer.add_scalar('num_successes_until_now', successes, global_step=t)
+    writer.add_scalar('cum_reward_in_episode', cum_reward, global_step=t)
+    writer.add_scalar('num_steps_in_episode', t_ep, global_step=t)
+    writer.add_scalar('loss', loss.mean().detach().numpy(), global_step=t) if loss is not None else None
+    writer.add_scalar('wloss', wloss.detach().numpy(), global_step=t) if wloss is not None else None
+    writer.add_scalar('nonzero_rewards_in_batch', (r.detach() > 0).float().sum().numpy(), global_step=t) if r is not None else None

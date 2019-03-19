@@ -4,6 +4,7 @@ OpenAI PER implementation
 import numpy as np
 import random
 from ddqn_mountaincar.segment_tree import SumSegmentTree, MinSegmentTree
+import torch
 
 
 class ReplayBuffer(object):
@@ -116,7 +117,7 @@ class PrioritizedReplayBuffer(ReplayBuffer):
             res.append(idx)
         return res
 
-    def sample(self, batch_size, beta):
+    def sample(self, batch_size, beta, to_tensor=True):
         """Sample a batch of experiences.
 
         compared to ReplayBuffer.sample
@@ -166,7 +167,17 @@ class PrioritizedReplayBuffer(ReplayBuffer):
             weights.append(weight / max_weight)
         weights = np.array(weights)
         encoded_sample = self._encode_sample(idxes)
-        return tuple(list(encoded_sample) + [weights, idxes])
+        if not to_tensor:
+            return tuple(list(encoded_sample) + [weights, idxes])
+        else:
+            s, a, r, s_, d, w, idx = tuple(list(encoded_sample) + [weights, idxes])
+            s = torch.from_numpy(s)
+            a = torch.from_numpy(a).view(-1, 1)
+            r = torch.from_numpy(r)
+            s_ = torch.from_numpy(s_)
+            d = torch.from_numpy(d.astype(int)).byte().view(-1)
+            w = torch.from_numpy(w).float().view(-1)
+            return s, a, r, s_, d, w, idx
 
     def update_priorities(self, idxes, priorities):
         """Update priorities of sampled transitions.
