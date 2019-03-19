@@ -1,9 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-from collections import deque
 from matplotlib import pyplot as plt
-from scipy.special import softmax
 import os
 
 
@@ -60,6 +58,7 @@ class DQN(torch.nn.Module):
 
 
 def build_target(dqn, dqn_eval, r, s_, d, gamma):
+    """Returns r + gamma * max_a { Q_eval(s_t+1,a) } """
     dqn.eval()
     dqn_eval.eval()
 
@@ -81,12 +80,14 @@ def build_target(dqn, dqn_eval, r, s_, d, gamma):
 ###########################################
 
 def update_eval_network(dqn_eval, dqn, i, tau):
+    """Copy the weights of the policy network into the target network"""
     if i % tau == 0:
         dqn_eval.load_state_dict(dqn.state_dict())
         dqn_eval.eval()
 
 
 def create_exp_dir():
+    """Create a subdirectory within ./tensorboard to store the experiments with TensorBoard"""
     i = 1
     while True:
         if os.path.isdir('./tensorboard/exp%d'%i):
@@ -98,11 +99,16 @@ def create_exp_dir():
 
 
 def huber(x):
+    """Huber function (~ smooth L1 norm of x)"""
     mask = (torch.abs(x) < 1.).float()
     return mask*.5*torch.pow(x, 2) + (1.-mask)*(torch.abs(x) - .5)
 
 
 def color(actions):
+    """
+    Color 0 in red (push left), 1 in yellow (do nothing), and 2 in green (push right)
+    The object of this function is to visualize the policy in the (position, speed) state space (to actually see whatthe policy looks like)
+    """
     colors = []
     for a in actions:
         if a == 0:
@@ -119,6 +125,10 @@ def _reward(pos):
 
 
 def update_reward(pos, done, successes):
+    """
+    Instead of using the sparse reward signal given by the environment Mountaincar-v0 (the episodes' rewards are always the same until you reach the flag once),
+     I use this signal that rewards getting closer to the flag, and penalize being to far, in particular staying in the middle
+    """
     reward = _reward(pos) - _reward(-.3)
     if done:
         if pos >= .5:
@@ -128,6 +138,7 @@ def update_reward(pos, done, successes):
 
 
 def tensorboard(dqn, pos_speed_grid, writer, t, cum_reward, successes, t_ep, loss, wloss, r):
+    """Monitoring using TensorBoard"""
     dqn.eval()
     actions, q_scores = dqn.action(torch.from_numpy(pos_speed_grid).float(), eps=0, return_score=True)
     actions = actions.numpy().reshape(-1)
