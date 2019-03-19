@@ -1,9 +1,10 @@
 """
-DQN on OpenAI's MountainCar problem
+DDQN on OpenAI's MountainCar problem
 
-- Implementation of DQN : https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf
-- Works with the OpenAI gym environment
-- Modified reward function
+- Implementation of DDQN : https://arxiv.org/abs/1509.06461
+- Works with the OpenAI gym environment (MountainCar-v0)
+- Modified reward function (see utils.update_reward)
+- Use OpenAI PER code (https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py)
 
 
 
@@ -54,7 +55,7 @@ pos_speed_grid = np.array(list(product(pos_grid, speed_grid)))
 env = gym.make('MountainCar-v0')
 
 
-# Neural networks
+# Neural networks and optimizer
 dqn = DQN(hdim=100)
 dqn_eval = deepcopy(dqn)
 lr = 2e-4
@@ -91,8 +92,6 @@ for n_episode in range(N_EPISODES):
     cum_reward = 0
     done = False
     t_ep = 0
-    max_pos = -np.inf
-    min_pos = np.inf
 
     while not done:
         # Copy weights of eval network if necessary
@@ -111,7 +110,7 @@ for n_episode in range(N_EPISODES):
         observation_tp1, _, done, _ = env.step(action)
         pos = observation_tp1[0]*1.
 
-        # UPDATE REWARD (the rewrad provided by the environment is too sparse and does not help the algorithm to learn)
+        # UPDATE REWARD (the reward provided by the environment is too sparse and does not help the algorithm to learn)
         reward, successes = update_reward(pos, done, successes)
         cum_reward += (GAMMA ** t_ep) * reward
 

@@ -12,25 +12,6 @@ import os
 ###########################################
 
 
-class PrioritizedBuffer:
-    def __init__(self, max_size, temp=30.):
-        self.memory = deque()
-        self.priorities = deque()
-        self.max_size = max_size
-        self.temp = temp
-
-    def add(self, x, priority):
-        self.memory.append(x)
-        self.priorities.append(priority)
-
-    def sample(self, n):
-        return np.random.choice(self.memory, n, replace=False, p=softmax(np.array(self.priorities)*self.temp))
-
-    @property
-    def n(self):
-        return len(self.memory)
-
-
 class DQN(torch.nn.Module):
     """
     3 layered fully-connected neural network with batch norm
@@ -45,8 +26,6 @@ class DQN(torch.nn.Module):
         self.fc2 = torch.nn.Linear(hdim, hdim, bias=False)
         self.bn2 = torch.nn.BatchNorm1d(hdim)
         self.fc3 = torch.nn.Linear(hdim, 3, bias=True)  # one output per action
-        # self.bn3 = torch.nn.BatchNorm1d(3)
-        # self.sign = sign
 
     def forward(self, x):
         # reshape if necessary
@@ -78,15 +57,6 @@ class DQN(torch.nn.Module):
 
     def q_values(self, s, a):
         return self.forward(s).gather(1, a).view(-1)
-
-
-def parse_batch(batch):
-    a = torch.from_numpy(np.stack([np.array([transition['a']]) for transition in batch])).long()
-    s = torch.from_numpy(np.stack([transition['s'] for transition in batch]))
-    r = torch.from_numpy(np.stack([np.array([transition['r']]) for transition in batch]))
-    s_ = torch.from_numpy(np.stack([transition["s'"] for transition in batch]))
-    d = torch.from_numpy(np.stack([np.array([transition['d']])*1. for transition in batch])).byte().view(-1)
-    return a,s,r,s_,d
 
 
 def build_target(dqn, dqn_eval, r, s_, d, gamma):
@@ -154,12 +124,6 @@ def update_reward(pos, done, successes):
             reward += 3
             successes += 1
     return reward, successes
-
-
-def update_min_max_pos(pos, min_pos, max_pos):
-    min_pos = min(min_pos, pos)
-    max_pos = max(max_pos, pos)
-    return min_pos, max_pos
 
 
 def tensorboard(dqn, pos_speed_grid, writer, t, cum_reward, successes, t_ep, loss, wloss, r):
