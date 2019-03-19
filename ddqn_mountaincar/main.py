@@ -34,9 +34,9 @@ from utils import create_exp_dir
 
 # Hyperparams
 BATCH_SIZE = 64
-TAU = 200
+TAU = 200  # the update frequency of the target network
 GAMMA = .999  # discount factor
-N_RANDOM = 40000.  # the number of steps it takes to go from eps=1. to eps=0.1
+N_RANDOM = 40000.  # the number of steps it takes to go from eps=1. to eps=0.05 (exponentially decreasing, loses 99% of the .95 in 40000 steps)
 N_EPISODES = 1500
 MAX_SIZE_BUFFER = 20000  # the maximum number of transitions in the buffer
 T_START_LEARNING = BATCH_SIZE * 10  # the minimum number of transitions to be seen in the buffer before training
@@ -100,7 +100,7 @@ for n_episode in range(N_EPISODES):
         env.render()
         t += 1
         t_ep += 1
-        eps = .05 + .95*np.exp(-t*5 / N_RANDOM)   # float(np.clip(1 - t / N_RANDOM, .1, 1.))
+        eps = .05 + .95*np.exp(-t*5 / N_RANDOM)
 
         # TAKE ACTION
         x = torch.from_numpy(observation_t)
