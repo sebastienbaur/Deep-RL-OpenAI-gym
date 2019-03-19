@@ -144,16 +144,25 @@ def color(actions):
     return colors
 
 
-def update_reward(done, max_pos, min_pos, pos, successes):
-    min_pos, max_pos = update_min_max_pos(pos, min_pos, max_pos)
-    reward = 0
+def update_reward(pos, done, successes):
+    reward = (.2/(.7-pos))**3
     if done:
         if pos >= .5:
+            reward += 1
             successes += 1
-            reward += 10
-        else:
-            reward += max_pos - min_pos
-    return reward, successes, min_pos, max_pos
+    return reward, successes
+
+
+# def update_reward(done, max_pos, min_pos, pos, successes):
+#     min_pos, max_pos = update_min_max_pos(pos, min_pos, max_pos)
+#     reward = 0
+#     if done:
+#         if pos >= .5:
+#             successes += 1
+#             reward += 10
+#         else:
+#             reward += max_pos - min_pos
+#     return reward, successes, min_pos, max_pos
 
 
 def update_min_max_pos(pos, min_pos, max_pos):

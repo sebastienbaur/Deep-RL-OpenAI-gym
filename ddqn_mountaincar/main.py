@@ -7,19 +7,17 @@ DQN on OpenAI's MountainCar problem
 
 """
 
+
 from copy import deepcopy
 from itertools import product
-
 import gym
 import numpy as np
 import torch
 from tensorboardX import SummaryWriter
-
 from ddqn_mountaincar.per import PrioritizedReplayBuffer
 from ddqn_mountaincar.utils import DQN, update_eval_network, build_target, huber, update_reward, tensorboard
 from utils import create_exp_dir
 
-# INIT VARIABLES
 
 # Hyperparams
 BATCH_SIZE = 128
@@ -51,13 +49,16 @@ lr = 1e-3
 momentum = .5
 optim = torch.optim.Adam(dqn.parameters(), lr=lr)  # RMSprop(dqn.parameters(), lr=lr, momentum=momentum)
 
+
 # Monitoring
 t = 0  # step counts
 successes = 0
 writer = SummaryWriter(log_dir=create_exp_dir())
 
+
 # Memory
 replay_memory = PrioritizedReplayBuffer(MAX_SIZE_BUFFER, ALPHA)
+
 
 # Misc
 observation_t = None
@@ -99,7 +100,8 @@ for n_episode in range(N_EPISODES):
         pos = observation_tp1[0]*1.
 
         # UPDATE REWARD (the rewrad provided by the environment is too sparse and does not help the algorithm to learn)
-        reward, successes, min_pos, max_pos = update_reward(done, max_pos, min_pos, pos, successes)
+        reward, successes = update_reward(pos, done, successes)
+        # reward, successes, min_pos, max_pos = update_reward(done, max_pos, min_pos, pos, successes)
         cum_reward += (GAMMA ** t_ep) * reward
 
         # STORE IN MEMORY
