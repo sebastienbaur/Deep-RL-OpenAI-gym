@@ -15,12 +15,11 @@ You need to:
 * exp 6: more reward on reaching the flag (+50 instead of +3)
 * exp 7: original reward scheme
 
-# Conclusion
+# Conclusions
 
-The introduction of DDQN with a reasonable update frequency (once or twice every episode), with an optimizer (little momentum) is the most important factor to
+* The introduction of DDQN with a reasonable update frequency (once or twice every episode), with an optimizer (little momentum) is the most important factor to
 find an optimal policy quickly.
-
-The GAMMA is also quite important (you want the long term rewards to be very important, so GAMMA ~ 1)
+* The GAMMA is also quite important (you want the long term rewards to be very important, so GAMMA ~ 1)
 
 
 # Final hyperparameters
