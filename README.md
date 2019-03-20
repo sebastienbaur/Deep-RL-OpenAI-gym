@@ -1,2 +1,2 @@
-# pole-balancing-dqn
-Deep Q-learning for cart pole balancing
+# Deep-RL-OpenAI-gym
+Deep Reinforcement learning on the OpenAI gym environment
