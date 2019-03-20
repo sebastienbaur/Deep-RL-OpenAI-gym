@@ -9,13 +9,8 @@ DDQN on OpenAI's MountainCar problem
 
 
 TODO:
-Essayer de comprendre pourquoi ca n'apprend pas
-
----> remplir la memoire avec des samples qui reussissent
----> pre-train Q sur la reward cumulee
 ---> visualiser l'erreur V(s) - Q(s,a) a intervalles reguliers
 ---> Essayer d'autres reward schemes
----> essayer le meme code sur l'environnement Cartpole balancing
 """
 
 
