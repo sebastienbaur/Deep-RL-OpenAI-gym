@@ -3,8 +3,8 @@ DDQN on OpenAI's MountainCar problem
 
 - Implementation of DDQN : https://arxiv.org/abs/1509.06461
 - Works with the OpenAI gym environment (MountainCar-v0)
-- Modified reward function to make learning easier (see utils.update_reward)
 - Use OpenAI PER code (https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py)
+- Trying different choices of hyperparameters
 
 
 Hyperparameters that work well:
@@ -30,7 +30,6 @@ Hyperparameters whose influence should be tested:
 - GAMMA: .999 is better than .99.
          With the former, training is way faster. It is probably because the positive rewards are delayed in time, so having a higher GAMMA gives them more importance
          It is essential to learn a successful policy
-- MAX SIZE BUFFER
 - THE REWARD FUNCTION: it is better to have a dense reward signal, as it helps the agent towards the objective. Note that maximizing the cumulative discounted reward should still be
                        aligned with the objective (i.e. there shouldn't be any way of maximizing it without achieving the goal)
                        NOTE: IS IT REALLT THIS THAT MAKES THE AGENT LEARN SOMETHING, OR RATHER THE UPDATE FREQUENCY OF THE TARGET NETWORK
