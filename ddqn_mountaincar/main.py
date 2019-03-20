@@ -16,8 +16,6 @@ Essayer de comprendre pourquoi ca n'apprend pas
 ---> visualiser l'erreur V(s) - Q(s,a) a intervalles reguliers
 ---> Essayer d'autres reward schemes
 ---> essayer le meme code sur l'environnement Cartpole balancing
---->
-
 """
 
 
