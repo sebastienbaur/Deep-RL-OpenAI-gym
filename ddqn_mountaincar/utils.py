@@ -129,10 +129,11 @@ def update_reward(pos, done, successes):
     Instead of using the sparse reward signal given by the environment Mountaincar-v0 (the episodes' rewards are always the same until you reach the flag once),
      I use this signal that rewards getting closer to the flag, and penalize being to far, in particular staying in the middle
     """
-    reward = _reward(pos) - _reward(-.3)
+    # reward = _reward(pos) - _reward(-.3)
+    reward = -1
     if done:
         if pos >= .5:
-            reward += 3
+            reward += 1  #50  # you want something big enough so that it is not worth chilling around on the rest of the hill to reap more rewards
             successes += 1
     return reward, successes
 
