@@ -1,4 +1,4 @@
-# Instructions to read the files
+# Instructions to read the files with Tensorboard
 
 You need to:
 * install TensorBoard,
