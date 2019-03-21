@@ -57,17 +57,17 @@ TODO:
 ---> visualiser l'erreur V(s) - Q(s,a) a intervalles reguliers
 """
 
-
 from copy import deepcopy
 from itertools import product
+
 import gym
 import numpy as np
 import torch
 from tensorboardX import SummaryWriter
+
 from ddqn_mountaincar.per import PrioritizedReplayBuffer
 from ddqn_mountaincar.utils import DQN, update_eval_network, build_target, huber, update_reward, tensorboard
-from utils import create_exp_dir
-
+from dqn_mountaincar.utils import create_exp_dir
 
 # Hyperparams
 BATCH_SIZE = 64

@@ -14,13 +14,15 @@ TODO:
 from collections import deque
 from itertools import product
 from random import sample
+
 import gym
 import numpy as np
 import torch as t
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
 from tensorboardX import SummaryWriter
-from utils import moving_average, color, create_exp_dir
+
+from dqn_mountaincar.utils import color, create_exp_dir
 
 
 class DQN(t.nn.Module):
