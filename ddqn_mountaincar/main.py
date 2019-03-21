@@ -1,4 +1,8 @@
 """
+*********************************************
+******   This is a copy of the README  ******
+*********************************************
+
 DDQN on OpenAI's MountainCar problem
 
 - Implementation of DDQN : https://arxiv.org/abs/1509.06461
@@ -43,6 +47,10 @@ In conclusion, two parameters are REALLY USEFUL:
 - using a target network to have a more stationary training objective (DDQN vs DQN)
 - the update frequency of the target (updating not too frequently (more than 1 which is the DQN case), more like every episode, like 100 or 200)
 - using an optimizer with little momentum
+
+
+As the rewards are always negative in the normal reward scheme, it may sound sensible to constrain the output of the Q network to be always negative (by outputting -F.relu(...)) for example
+As it turns out, doing this makes learning much harder. Most values tend to be zero (Q(s,a) = 0 \forall s,a), and nothing happens. The reason is rather obscure to me
 
 
 TODO:
