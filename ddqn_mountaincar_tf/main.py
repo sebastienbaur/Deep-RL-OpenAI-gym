@@ -57,17 +57,14 @@ TODO:
 ---> visualiser l'erreur V(s) - Q(s,a) a intervalles reguliers
 """
 
-from copy import deepcopy
+import tensorflow as tf
 from itertools import product
-
 import gym
 import numpy as np
-import torch
 from tensorboardX import SummaryWriter
-
-from ddqn_mountaincar.per import PrioritizedReplayBuffer
-from ddqn_mountaincar.utils import DQN, update_eval_network, build_target, huber, update_reward, tensorboard
-from dqn_mountaincar.utils import create_exp_dir
+from ddqn_mountaincar_tf.per import PrioritizedReplayBuffer
+from ddqn_mountaincar_tf.utils import DQN, update_eval_network, build_target, huber, update_reward, tensorboard
+from ddqn_mountaincar_tf.utils import create_exp_dir
 
 # Hyperparams
 BATCH_SIZE = 64
@@ -94,11 +91,13 @@ env = gym.make('MountainCar-v0')
 
 # Neural networks and optimizer
 dqn = DQN(hdim=100)
-dqn_eval = deepcopy(dqn)
-dqn_eval.eval()
+dqn_eval = DQN(hdim=100)
+update_eval_network(dqn_eval, dqn, 1, 1)
+dqn_eval.trainable = False
 lr = 2e-4
 momentum = .05
-optim = torch.optim.RMSprop(dqn.parameters(), lr=lr, momentum=momentum)  #torch.optim.Adam(dqn.parameters(), lr=lr)
+optim = tf.keras.optimizers.RMSprop(lr=lr, rho=momentum)  #torch.optim.Adam(dqn.parameters(), lr=lr)
+dqn.compile(optim, loss='huber')
 
 
 # Monitoring
@@ -143,11 +142,11 @@ for n_episode in range(N_EPISODES):
         eps = .05 + .95*np.exp(-t*5 / N_RANDOM)
 
         # OBSERVE
-        x = torch.from_numpy(observation_t)
+        x = observation_t * 1.
         observation_t = observation_tp1*1. if observation_tp1 is not None else observation_t
 
         # TAKE ACTION
-        action = dqn.action(x, eps=eps).numpy()  # eps-greedy action selection
+        action = dqn.action(x, eps=eps)  # eps-greedy action selection
         observation_tp1, _, done, _ = env.step(action)
         pos = observation_tp1[0]*1.
 
@@ -169,21 +168,15 @@ for n_episode in range(N_EPISODES):
                 # Compute loss
                 q = dqn.q_values(s, a)  # q(s_i, a_i) for all elements of the batch
                 target = build_target(dqn, dqn_eval, r, s_, d, GAMMA)
+                wloss = dqn.train_on_batch(s, target, sample_weight=w)  # @TODO: extract the only column that matters from the output of dqn (see keras DQN example)
                 td_error = q - target
-                loss = huber(td_error)
-                wloss = torch.mean(w*loss)
-
-                # Update weights
-                optim.zero_grad()
-                wloss.backward()
-                optim.step()
 
                 # Update priorities
-                replay_memory.update_priorities(idx, torch.abs(td_error).detach().numpy() + PER_EPS)
+                replay_memory.update_priorities(idx, tf.abs(td_error).detach() + PER_EPS)
 
         # MONITORING
         if done:
-            tensorboard(dqn, pos_speed_grid, writer, t, cum_reward, successes, t_ep, loss, wloss, r)
+            tensorboard(dqn, pos_speed_grid, writer, t, cum_reward, successes, t_ep, None, wloss, r)
             break
 
 env.close()

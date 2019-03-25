@@ -44,7 +44,7 @@ class DQN(tf.keras.Model):
         :param eps: the probaility of selecting a random action
         :return: an action, or one per element of the batch
         """
-        values = self.call(x)
+        values = self.predict(x)
         u = np.random.random()
         if u < eps:
             values = np.random.random(values.shape)
@@ -141,9 +141,8 @@ def update_reward(pos, done, successes):
 def tensorboard(dqn, pos_speed_grid, writer, t, cum_reward, successes, t_ep, loss, wloss, r):
     """Monitoring using TensorBoard"""
     dqn.eval()
-    actions, q_scores = dqn.action(tf.Tensor(pos_speed_grid).float(), eps=0, return_score=True)
-    actions = actions.numpy().reshape(-1)
-    q_scores = q_scores.detach().numpy()
+    actions, q_scores = dqn.action(pos_speed_grid, eps=0, return_score=True)
+    actions = actions.reshape(-1)
 
     # policy
     fig = plt.figure(1)
@@ -158,14 +157,13 @@ def tensorboard(dqn, pos_speed_grid, writer, t, cum_reward, successes, t_ep, los
     writer.add_figure('q_scores', fig, global_step=t)
 
     # weights of the neural network
-    writer.add_histogram('fc1', dqn.fc1.weight.detach().numpy(), global_step=t)
-    writer.add_histogram('fc2', dqn.fc2.weight.detach().numpy(), global_step=t)
-    writer.add_histogram('fc3', dqn.fc3.weight.detach().numpy(), global_step=t)
+    writer.add_histogram('fc1', dqn.fc1.weight, global_step=t)  #@TODO: modify the way to access the weights
+    writer.add_histogram('fc2', dqn.fc2.weight, global_step=t)
+    writer.add_histogram('fc3', dqn.fc3.weight, global_step=t)
 
     # a few scalars to monitor the performance of the agent (cumulative rewards and loss essentially)
     writer.add_scalar('num_successes_until_now', successes, global_step=t)
     writer.add_scalar('cum_reward_in_episode', cum_reward, global_step=t)
     writer.add_scalar('num_steps_in_episode', t_ep, global_step=t)
-    writer.add_scalar('loss', loss.mean().detach().numpy(), global_step=t) if loss is not None else None
-    writer.add_scalar('wloss', wloss.detach().numpy(), global_step=t) if wloss is not None else None
-    writer.add_scalar('nonzero_rewards_in_batch', (r.detach() > 0).float().sum().numpy(), global_step=t) if r is not None else None
+    writer.add_scalar('wloss', wloss, global_step=t) if wloss is not None else None
+    writer.add_scalar('nonzero_rewards_in_batch', (r > 0).sum(), global_step=t) if r is not None else None
