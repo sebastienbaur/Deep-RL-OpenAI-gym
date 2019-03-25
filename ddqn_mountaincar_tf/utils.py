@@ -22,9 +22,9 @@ class DQN(tf.keras.Model):
         self.bn1 = tf.keras.layers.BatchNormalization()
         self.fc2 = tf.keras.layers.Dense(hdim, use_bias=False, activation='relu')
         self.bn2 = tf.keras.layers.BatchNormalization()
-        self.fc3 = tf.keras.layers.Dense(3, use_bias=True)  # one output per action
+        self.fc3 = tf.keras.layers.Dense(3, use_bias=True, activation=None)  # one output per action
 
-    def forward(self, x):
+    def call(self, x):
         # reshape if necessary
         xx = x*1. if len(x.shape) == 2 else tf.keras.layers.Reshape((-1, 1))(x)
 
@@ -44,7 +44,7 @@ class DQN(tf.keras.Model):
         :param eps: the probaility of selecting a random action
         :return: an action, or one per element of the batch
         """
-        values = self.forward(x)
+        values = self.call(x)
         u = np.random.random()
         if u < eps:
             values = np.random.random(values.shape)
@@ -52,26 +52,26 @@ class DQN(tf.keras.Model):
         else:
             return tf.argmax(values, axis=1 if len(x.shape) == 2 else 0) if not return_score else (tf.argmax(values, axis=1 if len(x.shape) == 2 else 0), values)
 
-    # @todo: modify this one
     def q_values(self, s, a):
-        return self.forward(s).gather(1, a).view(-1)
+        q = self.call(s)
+        q = tf.gather(q, tf.stack([a]*3, 1))
+        return tf.reshape(q, -1)
 
 
-# @todo: modify this one
 def build_target(dqn, dqn_eval, r, s_, d, gamma):
     """Returns r + gamma * max_a { Q_eval(s_t+1,a) } """
     dqn.eval()
     dqn_eval.eval()
 
-    target = r.view(-1).float()
+    target = tf.reshape(r, -1).float()
 
-    q = dqn.forward(s_)
-    greedy_actions = torch.max(q + torch.rand_like(q) / 1e6, 1)[1].view(-1, 1)   # actions that maximizes `Q(S_t+1, a)` w.r.t. `a`
-    update_target = dqn_eval.forward(s_).gather(1, greedy_actions).view(-1)  # values of these actions `a` with the evaluation network `Q'(S_t+1, a)`
+    q = dqn.call(s_)
+    greedy_actions = tf.reshape(tf.argmax(q + tf.random_normal(q.shape) / 1e6, axis=1), (-1, 1))   # actions that maximizes `Q(S_t+1, a)` w.r.t. `a`
+    update_target = tf.reshape(dqn_eval.q_values(s_, greedy_actions), -1)  # values of these actions `a` with the evaluation network `Q'(S_t+1, a)`
     update_target = (gamma * update_target[1 - d]).float()
 
     target[1 - d] += update_target  # update only those transitions that are not done
-    target.detach_()  # don't propagate gradients through this
+    target = tf.stop_gradient(target)  # don't propagate gradients through this
 
     return target
 
@@ -80,12 +80,10 @@ def build_target(dqn, dqn_eval, r, s_, d, gamma):
 # TESTED
 ###########################################
 
-# @todo: modify this one
 def update_eval_network(dqn_eval, dqn, i, tau):
     """Copy the weights of the policy network into the target network"""
     if i % tau == 0:
-        dqn_eval.load_state_dict(dqn.state_dict())
-        dqn_eval.eval()
+        dqn_eval.set_weights(dqn.get_weights())
 
 
 def create_exp_dir():

@@ -64,9 +64,9 @@ def build_target(dqn, dqn_eval, r, s_, d, gamma):
 
     target = r.view(-1).float()
 
-    q = dqn.forward(s_)
+    q = dqn.call(s_)
     greedy_actions = torch.max(q + torch.rand_like(q) / 1e6, 1)[1].view(-1, 1)   # actions that maximizes `Q(S_t+1, a)` w.r.t. `a`
-    update_target = dqn_eval.forward(s_).gather(1, greedy_actions).view(-1)  # values of these actions `a` with the evaluation network `Q'(S_t+1, a)`
+    update_target = dqn_eval.call(s_).gather(1, greedy_actions).view(-1)  # values of these actions `a` with the evaluation network `Q'(S_t+1, a)`
     update_target = (gamma * update_target[1 - d]).float()
 
     target[1 - d] += update_target  # update only those transitions that are not done
