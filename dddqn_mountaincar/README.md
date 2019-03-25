@@ -1,4 +1,4 @@
-* Implementation of DDQN with **TensorFlow** : https://arxiv.org/abs/1509.06461
+* Implementation of Dueling DDQN
 * Works with the OpenAI gym environment (MountainCar-v0)
 * Use OpenAI PER code (https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py)
 * Trying different choices of hyperparameters

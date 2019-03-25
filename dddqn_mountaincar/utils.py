@@ -15,28 +15,49 @@ class DQN(torch.nn.Module):
     3 layered fully-connected neural network with batch norm
     It takes the state as inputs and outputs Q(s,0), Q(s,1), Q(s,2)
     """
-    def __init__(self, hdim=100):
+    def __init__(self, hdim=100, adv_type='max'):
         super(DQN, self).__init__()
+
+        assert adv_type in {'max', 'mean'}
+        self.adv_type = adv_type
 
         # sequence of blocks FC + BN + ReLU
         self.fc1 = torch.nn.Linear(2, hdim, bias=False)  # 2d state space
         self.bn1 = torch.nn.BatchNorm1d(hdim)
         self.fc2 = torch.nn.Linear(hdim, hdim, bias=False)
         self.bn2 = torch.nn.BatchNorm1d(hdim)
-        self.fc3 = torch.nn.Linear(hdim, 3, bias=True)  # one output per action
+        self.fc3_a = torch.nn.Linear(hdim, 3, bias=True)  # one output per action
+        self.fc3_v = torch.nn.Linear(hdim, 1, bias=True)
 
-    def forward(self, x):
+    def forward(self, x, return_adv=False, return_val=False):
         # reshape if necessary
         xx = x*1. if len(x.shape) == 2 else x.view(1, -1)
 
         # forward pass
         xx = self.bn1(F.relu(self.fc1(xx.float())))
         xx = self.bn2(F.relu(self.fc2(xx)))
-        xx = self.fc3(xx)
+        xx_v = self.fc3_v(xx)
+        xx_a = self.fc3_a(xx)
+        if self.adv_type == 'max':
+            xx_a = xx_a - torch.max(xx_a, dim=1)[0].view(-1, 1)
+        elif self.adv_type == 'mean':
+            xx_a = xx_a - torch.mean(xx_a, dim=1).view(-1, 1)
+        else:
+            raise NotImplementedError('It should be either `max` or `mean`')
+        xx = xx_v + xx_a
 
         # reshape if necessary
         xx = xx if len(x.shape) == 2 else xx.view(-1)
-        return xx
+        xx_a = xx_a if len(x.shape) == 2 else xx_a.view(-1)
+        xx_v = xx_v if len(x.shape) == 2 else xx_v.view(-1)
+
+        result = [xx]
+        if return_adv:
+            result.append(xx_a)
+        if return_val:
+            result.append(xx_v)
+
+        return tuple(result) if len(result) > 1 else xx
 
     def action(self, x, return_score=False, eps=.1):
         """
@@ -160,7 +181,8 @@ def tensorboard(dqn, pos_speed_grid, writer, t, cum_reward, successes, t_ep, los
     # weights of the neural network
     writer.add_histogram('fc1', dqn.fc1.weight.detach().numpy(), global_step=t)
     writer.add_histogram('fc2', dqn.fc2.weight.detach().numpy(), global_step=t)
-    writer.add_histogram('fc3', dqn.fc3.weight.detach().numpy(), global_step=t)
+    writer.add_histogram('fc3_a', dqn.fc3_a.weight.detach().numpy(), global_step=t)
+    writer.add_histogram('fc3_v', dqn.fc3_v.weight.detach().numpy(), global_step=t)
 
     # a few scalars to monitor the performance of the agent (cumulative rewards and loss essentially)
     writer.add_scalar('num_successes_until_now', successes, global_step=t)
